@@ -3,7 +3,7 @@
 
 local Decompiler = {}
 
-local DEFAULT_SERVER = "http://127.0.0.1:5000/decompile"
+local SERVER_URL = "http://127.0.0.1:5000/decompile"
 
 local function get_script_bytecode(script)
 	local OFFSETS
@@ -53,12 +53,9 @@ end
 function Decompiler.new(config)
 	local self = {}
 	
-	-- Configuration
-	self.target = config.target or nil                          -- script instance or path string
-	self.output_file = config.output_file or "decompiled.lua"   -- output filename
-	self.auto_execute = config.auto_execute or false            -- run after decompile
-	self.server_url = config.server_url or DEFAULT_SERVER       -- server endpoint
-	self.silent = config.silent or false                        -- suppress prints
+	self.target = config.target
+	self.output_file = config.output_file or "decompiled.lua"
+	self.silent = config.silent or false
 	
 	local function log(msg)
 		if not self.silent then
@@ -67,7 +64,6 @@ function Decompiler.new(config)
 	end
 	
 	function self.decompile()
-		-- resolve target
 		local script
 		if type(self.target) == "string" then
 			script = get_by_path(self.target)
@@ -84,12 +80,19 @@ function Decompiler.new(config)
 			return nil
 		end
 		
+		local path = ""
+		local current = script
+		while current and current ~= game do
+			path = current.Name .. (path ~= "" and "." .. path or "")
+			current = current.Parent
+		end
+		path = "game." .. path
+		
 		log("\n============================================================")
-		log(`[DECOMPILER] Target: {script:GetFullName()}`)
+		log(`[DECOMPILER] Processing: {path}`)
 		log(`[DECOMPILER] Type: {script.ClassName}`)
 		log("============================================================\n")
 		
-		-- extract bytecode
 		log("[1/3] Extracting bytecode...")
 		local bytecode, size = get_script_bytecode(script)
 		if not bytecode then
@@ -98,12 +101,11 @@ function Decompiler.new(config)
 		end
 		log(`[✓] Extracted {size} bytes`)
 		
-		-- send to server
-		log("\n[2/3] Sending to decompiler server...")
+		log("\n[2/3] Sending to decompiler server via HttpPost (crypt.base64)...")
 		local b64 = crypt.base64.encode(bytecode)
 		
 		local ok, response = pcall(function()
-			return game:HttpPost(self.server_url, b64, "text/plain", "text/plain", "")
+			return game:HttpPost(SERVER_URL, b64, "text/plain", "text/plain", "")
 		end)
 		
 		if not ok then
@@ -118,8 +120,7 @@ function Decompiler.new(config)
 		
 		log(`[✓] Received decompiled source ({#response} chars)`)
 		
-		-- save to file
-		log("\n[3/3] Saving to file...")
+		log("\n[3/3] Saving decompiled source...")
 		local success, err = pcall(function()
 			writefile(self.output_file, response)
 		end)
@@ -128,24 +129,6 @@ function Decompiler.new(config)
 			warn(`[DECOMPILER] Failed to save file: {err}`)
 		else
 			log(`[✓] Saved to: {self.output_file}`)
-		end
-		
-		-- optional execution
-		if self.auto_execute then
-			log("\n[+] Compiling with loadstring...")
-			local chunk, loadErr = loadstring(response, self.output_file)
-			if not chunk then
-				warn(`[DECOMPILER] loadstring failed: {loadErr}`)
-				return response
-			end
-			
-			log("[+] Executing decompiled script...")
-			local okRun, runErr = pcall(chunk)
-			if not okRun then
-				warn(`[DECOMPILER] Runtime error: {runErr}`)
-			else
-				log("[✓] Executed successfully")
-			end
 		end
 		
 		log("\n============================================================")
