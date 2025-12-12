@@ -34,7 +34,7 @@ local string_sub = string.sub
 local string_gmatch = string.gmatch
 
 ---- constants ----
-local SERVER_URL = "http://127.0.0.1:9002"
+local SERVER_URL = "http://127.0.0.1:3000"
 local MAX_BYTECODE_SIZE = 10_000_000
 
 local MAIN_TITLE = "Script Decompiler"
