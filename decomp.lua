@@ -1,5 +1,5 @@
 --!native
---!optimization 2
+--!optimize 2
 
 local Decompiler = {}
 
