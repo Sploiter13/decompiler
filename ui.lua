@@ -1,5 +1,5 @@
 --!native
---!optimization 2
+--!optimize 2
 
 ---- environment ----
 local Players = game:GetService("Players")
